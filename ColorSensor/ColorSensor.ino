@@ -35,6 +35,22 @@
 LiquidCrystal lcd(RS_PIN, EN_PIN, D4_PIN, D5_PIN, D6_PIN, D7_PIN);
 
 // ============================================================================
+// BUTTON CONFIGURATION
+// ============================================================================
+
+#define RED_BUTTON_PIN 2      // Red button trigger pin
+#define GREEN_BUTTON_PIN 3    // Green button trigger pin
+
+// ============================================================================
+// PWM CONFIGURATION
+// ============================================================================
+
+#define PWM_PIN_5 5           // PWM output pin 5
+#define PWM_PIN_6 6           // PWM output pin 6
+#define PWM_PIN_9 9           // PWM output pin 9
+#define PWM_VALUE 127         // Half of max (255 / 2 = 127.5)
+
+// ============================================================================
 // COLOR SENSOR OBJECT
 // ============================================================================
 
@@ -81,6 +97,53 @@ const ReferenceColor COLORS[] = {
 };
 
 // ============================================================================
+// INTERRUPT SERVICE ROUTINES
+// ============================================================================
+
+volatile unsigned long lastRedButtonTime = 0;
+volatile unsigned long lastGreenButtonTime = 0;
+
+/**
+ * Interrupt handler for Red button (Pin 2)
+ * Debounced to 50ms to prevent false triggers
+ */
+void redButtonISR() {
+    unsigned long currentTime = millis();
+    if (currentTime - lastRedButtonTime > 50) {
+        lastRedButtonTime = currentTime;
+        forceRedRead();
+    }
+}
+
+/**
+ * Interrupt handler for Green button (Pin 3)
+ * Debounced to 50ms to prevent false triggers
+ */
+void greenButtonISR() {
+    unsigned long currentTime = millis();
+    if (currentTime - lastGreenButtonTime > 50) {
+        lastGreenButtonTime = currentTime;
+        forceGreenRead();
+    }
+}
+
+/**
+ * Force display of Red color
+ */
+void forceRedRead() {
+    Serial.println("=== RED BUTTON PRESSED ===");
+    displayOnLCD("Color:", "Red");
+}
+
+/**
+ * Force display of Green color
+ */
+void forceGreenRead() {
+    Serial.println("=== GREEN BUTTON PRESSED ===");
+    displayOnLCD("Color:", "Green");
+}
+
+// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
@@ -121,6 +184,22 @@ void displayOnLCD(const char* line1, const char* line2) {
         lcd.setCursor(0, 1);
         lcd.print(line2);
     }
+}
+
+/**
+ * Initialize PWM outputs on pins 5, 6, and 9 to half max value (127)
+ */
+void initializePWM() {
+    pinMode(PWM_PIN_5, OUTPUT);
+    pinMode(PWM_PIN_6, OUTPUT);
+    pinMode(PWM_PIN_9, OUTPUT);
+    
+    analogWrite(PWM_PIN_5, PWM_VALUE);
+    analogWrite(PWM_PIN_6, PWM_VALUE);
+    analogWrite(PWM_PIN_9, PWM_VALUE);
+    
+    Serial.print("PWM initialized on pins 5, 6, 9 with value: ");
+    Serial.println(PWM_VALUE);
 }
 
 /**
@@ -236,8 +315,15 @@ void setup() {
     
     pinMode(COLORLEDPIN, OUTPUT);
     
+    // Initialize button pins with pull-up resistors and attach interrupts
+    pinMode(RED_BUTTON_PIN, INPUT_PULLUP);
+    pinMode(GREEN_BUTTON_PIN, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(RED_BUTTON_PIN), redButtonISR, FALLING);
+    attachInterrupt(digitalPinToInterrupt(GREEN_BUTTON_PIN), greenButtonISR, FALLING);
+    
     Serial.println("Starting Color Sensor Sketch...");
     Serial.println("LCD Display: 16x2 initialized");
+    Serial.println("Buttons: Red (Pin 2), Green (Pin 3)");
 
     // Initialize the color sensor
     if (!colorSensor.begin()) {
@@ -250,6 +336,9 @@ void setup() {
     
     Serial.println("Color sensor initialized successfully");
     Serial.println("Ready to detect colors!");
+    
+    // Initialize PWM outputs
+    initializePWM();
     
     // Display ready message
     displayOnLCD("Ready to", "Detect Colors!");
