@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Adafruit_TCS34725.h>
+#include <LiquidCrystal.h>
 #include <math.h>
 
 // ============================================================================
@@ -16,6 +17,22 @@
 #define SENSOR_INTEGRATION_TIME TCS34725_INTEGRATIONTIME_614MS
 #define SENSOR_GAIN TCS34725_GAIN_1X
 #define COLORLEDPIN 11
+
+// ============================================================================
+// LCD 1602 DISPLAY CONFIGURATION
+// ============================================================================
+
+// LCD pin connections (parallel mode)
+// Modify these pins to match your wiring
+#define RS_PIN 12      // Register Select
+#define EN_PIN 13      // Enable
+#define D4_PIN 5       // Data line 4
+#define D5_PIN 6       // Data line 5
+#define D6_PIN 7       // Data line 6
+#define D7_PIN 8       // Data line 7
+
+// Initialize the LCD library with the pin numbers
+LiquidCrystal lcd(RS_PIN, EN_PIN, D4_PIN, D5_PIN, D6_PIN, D7_PIN);
 
 // ============================================================================
 // COLOR SENSOR OBJECT
@@ -39,7 +56,7 @@ struct ReferenceColor {
 };
 
 // Reference colors for matching
-// Stores the color name, RGB target values, and LED output values
+// Calibrated colors from your testing
 const ReferenceColor COLORS[] = {
     {
         .name = "Red",
@@ -61,12 +78,7 @@ const ReferenceColor COLORS[] = {
         .name = "Orange",
         .match = {140, 70, 50},
     }
-
 };
-
-// ============================================================================
-// LED CONFIGURATION
-// ============================================================================
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -98,6 +110,20 @@ void debugColor(Color color) {
 }
 
 /**
+ * Display text on LCD
+ * Line 1 = top row, Line 2 = bottom row
+ */
+void displayOnLCD(const char* line1, const char* line2) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(line1);
+    if (line2 != NULL) {
+        lcd.setCursor(0, 1);
+        lcd.print(line2);
+    }
+}
+
+/**
  * Read a single RGB color sample from the sensor
  * Returns a Color struct with 8-bit RGB values
  */
@@ -106,6 +132,7 @@ Color readColor() {
     colorSensor.getRGB(&r, &g, &b);
     return {(uint8_t) round(r), (uint8_t) round(g), (uint8_t) round(b)};
 }
+
 /**
  * Read ambient light level (lux) from the sensor
  */
@@ -115,23 +142,23 @@ uint16_t readLux() {
     return colorSensor.calculateLux(r, g, b);
 }
 
-
 // ============================================================================
 // COLOR SENSOR MAIN FUNCTION
 // ============================================================================
 
 /**
- * Read color from sensor and set LED to matched color
+ * Read color from sensor and display on LCD and Serial
  * 
  * Process:
  * 1. Takes 5 sequential color readings with 10ms delays
  * 2. Averages the readings to reduce noise
  * 3. Compares against reference colors using Euclidean distance
- * 4. Sets the specified LED to the closest matching color
- * 5. Includes special handling for purple detection
+ * 4. Displays the detected color on LCD
+ * 5. Prints debug information to Serial
  */
 void read() {
     digitalWrite(COLORLEDPIN, HIGH);
+    
     // Take 5 samples with delays between each
     Color read1 = readColor();
     delay(10);
@@ -142,6 +169,7 @@ void read() {
     Color read4 = readColor();
     delay(10);
     Color read5 = readColor();
+    
     digitalWrite(COLORLEDPIN, LOW);
 
     // Average all 5 samples
@@ -155,20 +183,39 @@ void read() {
 
     // Find closest matching color using Euclidean distance
     float lowestDistance = INFINITY;
+    const char* closestColorName = "Unknown";
+    
     for (ReferenceColor color : COLORS) {
         float distance = calculateEuclidianDistance(readFinal, color.match);
         if (distance < lowestDistance) {
             lowestDistance = distance;
-            const char* closestColor = color.name;
-            Serial.println(color.name);
+            closestColorName = color.name;
         }
 
+        #ifdef COLOR_SENSOR_DEBUG
         Serial.print("Distance from ");
         Serial.print(color.name);
         Serial.print(": ");
         Serial.println(distance);
+        #endif
     }
 
+    // Print detected color to Serial
+    Serial.print("Detected Color: ");
+    Serial.println(closestColorName);
+    Serial.println("---");
+
+    // Display detected color on LCD
+    // Line 1: "Color:"
+    // Line 2: The color name (e.g., "Red", "Green", etc.)
+    char lcdLine1[16] = "Color:";
+    char lcdLine2[16];
+    
+    // Copy color name to line 2, truncate to fit 16 characters
+    strncpy(lcdLine2, closestColorName, 15);
+    lcdLine2[15] = '\0';
+    
+    displayOnLCD(lcdLine1, lcdLine2);
 }
 
 // ============================================================================
@@ -179,13 +226,23 @@ void setup() {
     // Initialize Serial communication for debugging
     Serial.begin(9600);
     delay(100);
+    
+    // Initialize LCD display (16 columns, 2 rows)
+    lcd.begin(16, 2);
+    
+    // Display startup message
+    displayOnLCD("Color Sensor", "Initializing...");
+    delay(2000);
+    
     pinMode(COLORLEDPIN, OUTPUT);
     
     Serial.println("Starting Color Sensor Sketch...");
+    Serial.println("LCD Display: 16x2 initialized");
 
     // Initialize the color sensor
     if (!colorSensor.begin()) {
         Serial.println("ERROR: Color sensor failed to initialize!");
+        displayOnLCD("ERROR:", "Sensor Failed!");
         while (1) {
             delay(1000);
         }
@@ -193,9 +250,13 @@ void setup() {
     
     Serial.println("Color sensor initialized successfully");
     Serial.println("Ready to detect colors!");
+    
+    // Display ready message
+    displayOnLCD("Ready to", "Detect Colors!");
+    delay(2000);
 }
 
 void loop() {
-	  read();
+    read();
     delay(500);
 }
