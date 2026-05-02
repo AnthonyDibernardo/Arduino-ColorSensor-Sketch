@@ -1,0 +1,37 @@
+# Arduino IDE
+.vscode/
+*.o
+*.a
+*.so
+*.so.*
+*.dylib
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+*.egg-info/
+.pytest_cache
+.clang-format
+
+# Build files
+build/
+dist/
+*.egg
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# IDE
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+*.iml
+
+# OS
+.DS_Store
+*.DS_Store
