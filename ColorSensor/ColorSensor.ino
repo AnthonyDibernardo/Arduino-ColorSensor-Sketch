@@ -24,12 +24,12 @@
 
 // LCD pin connections (parallel mode)
 // Modify these pins to match your wiring
-#define RS_PIN 12      // Register Select
-#define EN_PIN 13      // Enable
-#define D4_PIN 5       // Data line 4
-#define D5_PIN 6       // Data line 5
-#define D6_PIN 7       // Data line 6
-#define D7_PIN 8       // Data line 7
+#define RS_PIN 13      // Register Select
+#define EN_PIN 12      // Enable
+#define D4_PIN 7      // Data line 4
+#define D5_PIN 4       // Data line 5
+#define D6_PIN 8       // Data line 6
+#define D7_PIN 10       // Data line 7
 
 // Initialize the LCD library with the pin numbers
 LiquidCrystal lcd(RS_PIN, EN_PIN, D4_PIN, D5_PIN, D6_PIN, D7_PIN);
